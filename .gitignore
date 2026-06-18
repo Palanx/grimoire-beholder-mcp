@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# uv
+# (uv.lock is intentionally tracked for reproducible installs)
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Type checkers / linters
+.mypy_cache/
+.ruff_cache/
+.pyright/
+
+# Environment / secrets
+.env
+.env.*
+
+# book-rag runtime data
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Book source files (user-provided library content; not project source)
+*.pdf
+*.epub
+
+# Packaged MCP bundle (build artifact zipped from mcpb/)
+*.mcpb
+
+# macOS
+.DS_Store
+
+# Editors / IDEs
+.vscode/
+.idea/

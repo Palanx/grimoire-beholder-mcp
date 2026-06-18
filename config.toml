@@ -1,0 +1,47 @@
+# book-rag configuration. All values have built-in defaults, so this file
+# works as-is with zero edits.
+
+# Ollama model used to generate section summaries and chunk context.
+llm_model = "cogito:8b"
+
+# Ollama model used to embed contextualized chunks and queries. Stored in
+# the database on first ingest -- changing this later without starting a
+# fresh db_path will fail loudly rather than silently mixing vector spaces.
+embedding_model = "nomic-embed-text"
+
+# Approximate target chunk size, in tokens (estimated as chars / 4).
+chunk_size = 600
+
+# Approximate overlap between consecutive chunks, in tokens.
+chunk_overlap = 80
+
+# A chapter with no TOC sub-headings longer than this (in tokens) is
+# auto-split into consecutive sections of about this size, breaking on
+# paragraph boundaries where possible. Shorter flat chapters become one
+# single section.
+section_split_tokens = 3000
+
+# Number of chunks embedded per single batched Ollama request.
+embed_batch_size = 16
+
+# Number of top-matching chunks returned by `query` / `search_book`.
+top_k = 5
+
+# Path to the SQLite database that stores the whole library (every book
+# shares this one index and must use the same embedding_model).
+db_path = "book.db"
+
+# Retrieval mode for `query` / `search_book`: "hybrid" (vector + FTS5
+# keyword search, fused with Reciprocal Rank Fusion) or "vector" (cosine
+# similarity only, the pre-hybrid behavior).
+retrieval_mode = "hybrid"
+
+# How many top candidates each retrieval arm (vector, FTS5) pulls before
+# fusion. Higher values cost more per query but let RRF consider more
+# candidates that one arm ranked outside the final top_k.
+candidate_pool_size = 50
+
+# The k constant in Reciprocal Rank Fusion: score = sum(1 / (k + rank)).
+# Higher k flattens the curve, giving lower-ranked candidates relatively
+# more influence; 60 is the commonly used default from the RRF literature.
+rrf_k = 60

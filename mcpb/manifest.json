@@ -1,0 +1,59 @@
+{
+  "manifest_version": "0.3",
+  "name": "book-rag",
+  "display_name": "book-rag",
+  "version": "0.1.0",
+  "description": "Read-only hybrid (semantic + keyword) search over your local, multi-book RAG library -- fully offline via Ollama.",
+  "long_description": "book-rag parses PDFs, EPUBs, markdown, and plain text into a Book -> Chapter -> Section -> Chunk hierarchy, contextualizes and embeds every chunk locally via Ollama, indexes it for both vector and SQLite FTS5 keyword search, and stores everything in one shared SQLite library. This extension wires Claude Desktop to that library's read-only MCP server: list_books, get_book_outline (the chapter/section map), search_book (with optional author/source_type filters), get_section, and book_status. Ingesting and deleting books stays CLI-only by design and is never exposed here.\n\nThis bundle does not install Python, Ollama, models, or book-rag's dependencies -- those must already be set up by following the project's README (`uv sync`, pulling the configured Ollama models, and running `book-rag ingest` at least once) before this extension is installed. Installing it first will leave the server unable to start.",
+  "author": {
+    "name": "Palanx",
+    "email": "tmunizq@gmail.com"
+  },
+  "homepage": "https://github.com/Palanx/contextual-retrieval-rag",
+  "server": {
+    "type": "python",
+    "entry_point": "server/serve.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "${user_config.project_dir}",
+        "--directory",
+        "${user_config.library_dir}",
+        "book-rag",
+        "serve-mcp"
+      ]
+    }
+  },
+  "tools": [
+    { "name": "list_books", "description": "List every book in the library, with its id, slug, name, author, source type, and page count." },
+    { "name": "get_book_outline", "description": "Return one book's chapter/section outline -- chapter and section indices, titles (synthesized from a snippet if a section has none), page_start, and an approx_tokens size hint. No section text. Use after list_books to find the chapter_index/section_index for get_section." },
+    { "name": "search_book", "description": "Hybrid (semantic + keyword) search of the library and return cited, scored excerpts. Optionally scope to one book by book_id, or filter by exact author or source_type (pdf, epub, markdown, text)." },
+    { "name": "get_section", "description": "Fetch one section's full text and summary -- the parent of a search_book hit, or a section located via get_book_outline." },
+    { "name": "book_status", "description": "Report ingest status (chapter/section counts, chunk counts per stage) for every book." }
+  ],
+  "keywords": ["rag", "books", "pdf", "epub", "ollama", "local", "offline", "retrieval", "hybrid-search"],
+  "license": "MIT",
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin"],
+    "runtimes": {
+      "python": ">=3.12"
+    }
+  },
+  "user_config": {
+    "project_dir": {
+      "type": "directory",
+      "title": "book-rag project directory",
+      "description": "Absolute path to the book-rag repo clone where you ran `uv sync` (must contain pyproject.toml).",
+      "required": true
+    },
+    "library_dir": {
+      "type": "directory",
+      "title": "Library directory",
+      "description": "Absolute path to the directory containing your config.toml and book.db -- the directory you ran `book-rag ingest` from.",
+      "required": true
+    }
+  }
+}
