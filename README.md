@@ -1,5 +1,9 @@
 # book-rag
 
+![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
+![Platform: Apple Silicon](https://img.shields.io/badge/platform-Apple%20Silicon-lightgrey)
+![Local-first, offline](https://img.shields.io/badge/local--first-100%25%20offline-brightgreen)
+
 A self-contained, fully-offline RAG library for PDFs, EPUBs, markdown, and
 plain text, built for Apple Silicon. It's a **library**, not a single book:
 ingest as many books as you like, in any mix of supported formats, into one
@@ -19,6 +23,38 @@ deps, Ollama, models, and at least one ingested book -- all manual, all
 local) and **connecting it to Claude Desktop** (one click, via a `.mcpb`
 bundle). Only the second part is "one click" -- there is no zero-prerequisite
 install. Do Setup first; the bundle does not do it for you.
+
+## Features
+
+- **100% local and offline** -- LLM context generation and embeddings both
+  run through Ollama; no cloud API is ever called.
+- **Multi-format ingestion** -- PDF, EPUB, Markdown, and plain text share
+  one pipeline; see [Supported source types](#supported-source-types).
+- **Book → Chapter → Section → Chunk hierarchy** with LLM-generated,
+  section-scoped context per chunk (Anthropic's Contextual Retrieval).
+- **Hybrid retrieval** -- vector (cosine) and SQLite FTS5 (BM25) search
+  fused with Reciprocal Rank Fusion; see [Hybrid search](#hybrid-search).
+- **Crash-safe and resumable** -- ingestion checkpoints into SQLite at the
+  chunk level; see [How resume works](#how-resume-works).
+- **One-click Claude Desktop integration** via a `.mcpb` bundle exposing
+  read-only MCP tools -- ingest/delete/reindex stay CLI-only by design.
+
+## Table of contents
+
+- [Supported source types](#supported-source-types)
+- [Why sections?](#why-sections)
+- [Hybrid search](#hybrid-search)
+- [Setup (manual, run once, in order)](#setup-manual-run-once-in-order)
+- [Usage](#usage)
+- [Connect to Claude (one-click via .mcpb)](#connect-to-claude-one-click-via-mcpb)
+  - [Manual alternative (no .mcpb)](#manual-alternative-no-mcpb)
+  - [The five tools](#the-five-tools)
+  - [Asking Claude](#asking-claude)
+  - [Building the bundle](#building-the-bundle)
+- [Where the index lives](#where-the-index-lives)
+- [How resume works](#how-resume-works)
+- [Configuration](#configuration)
+- [Running the tests](#running-the-tests)
 
 ## Supported source types
 
@@ -87,7 +123,7 @@ use as your library (where `config.toml` and `book.db` will live):
 
 1. **Install Python dependencies:**
 
-   ```
+   ```bash
    uv sync
    ```
 
@@ -96,13 +132,13 @@ use as your library (where `config.toml` and `book.db` will live):
 
 2. **Pull the LLM model** (used for section summaries and chunk context):
 
-   ```
+   ```bash
    ollama pull cogito:8b
    ```
 
 3. **Pull the embedding model:**
 
-   ```
+   ```bash
    ollama pull nomic-embed-text
    ```
 
@@ -117,21 +153,21 @@ use as your library (where `config.toml` and `book.db` will live):
 
 5. **Ingest at least one book** (PDF, EPUB, markdown, or plain text):
 
-   ```
+   ```bash
    uv run book-rag ingest path/to/book.pdf [--name slug]
    ```
 
    This is slow (every section gets an LLM summary, every chunk gets LLM
    context and an embedding) but fully resumable -- interrupting it with
    Ctrl-C is fine, re-running the same command picks up where it left off
-   instead of starting over. See **How resume works** below.
+   instead of starting over. See [How resume works](#how-resume-works) below.
 
 Once you've done this once, the library is ready to query from the CLI
 (`uv run book-rag query "..."`) and ready to connect to Claude.
 
 ## Usage
 
-```
+```bash
 uv run book-rag ingest "<path-to-book.[pdf|epub|md|txt]>" [--name "Display Name"] [--force]
 uv run book-rag list
 uv run book-rag delete <slug> [--yes]
@@ -141,16 +177,17 @@ uv run book-rag reindex-fts [--book <slug>]
 uv run book-rag serve-mcp
 ```
 
-- **`ingest`** picks a parser by file extension (see **Supported source
-  types** above), extracts chapters and sections, chunks each section,
-  generates a per-section situating summary and per-chunk context with the
-  LLM model, and embeds and FTS5-indexes every chunk. The book's display
-  name (and the slug it's stored under) defaults to title metadata from the
-  file itself where available, falling back to the filename; override it
-  with `--name`. Author and source type are recorded automatically.
-  Re-running `ingest` on the same file is idempotent and resumable. If a
-  different file would collide with an existing slug, ingest refuses unless
-  you pass `--force` to replace it.
+- **`ingest`** picks a parser by file extension (see
+  [Supported source types](#supported-source-types) above), extracts
+  chapters and sections, chunks each section, generates a per-section
+  situating summary and per-chunk context with the LLM model, and embeds
+  and FTS5-indexes every chunk. The book's display name (and the slug it's
+  stored under) defaults to title metadata from the file itself where
+  available, falling back to the filename; override it with `--name`.
+  Author and source type are recorded automatically. Re-running `ingest` on
+  the same file is idempotent and resumable. If a different file would
+  collide with an existing slug, ingest refuses unless you pass `--force`
+  to replace it.
 - **`list`** shows every book in the library with its author, source type,
   page count, chapter count, section count, and chunk status breakdown.
 - **`delete <slug>`** permanently removes a book and everything under it
@@ -190,8 +227,9 @@ does not install Python, uv, Ollama, the models, or ingest any books. If you
 install it before completing Setup, Claude Desktop will show the extension
 as installed but the server will fail to start the moment it's invoked.
 
-1. Build (or download) `book-rag.mcpb` -- see **Building the bundle** below
-   if you need to build it yourself.
+1. Build (or download) `book-rag.mcpb` -- see
+   [Building the bundle](#building-the-bundle) below if you need to build
+   it yourself.
 2. In Claude Desktop, go to **Settings → Extensions → Install Extension**
    and pick `book-rag.mcpb`.
 3. When prompted for configuration, fill in:
@@ -277,7 +315,7 @@ The bundle source lives in `mcpb/` (`manifest.json` plus a documentation
 stub -- it ships no code or dependencies; see the `long_description` in the
 manifest for why). To build `book-rag.mcpb` from it:
 
-```
+```bash
 npm install -g @anthropic-ai/mcpb   # one-time; the official MCPB CLI
 mcpb validate mcpb/manifest.json
 mcpb pack mcpb book-rag.mcpb
@@ -349,6 +387,6 @@ The test suite mocks Ollama entirely (a fake client returns deterministic
 canned text and vectors) and uses temporary SQLite databases, so it runs
 with no Ollama daemon and no models pulled:
 
-```
+```bash
 uv run pytest
 ```
