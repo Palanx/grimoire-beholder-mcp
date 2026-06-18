@@ -69,10 +69,15 @@ def search(
     if mode not in _MODES:
         raise ValueError(f"Unknown retrieval mode {mode!r}; expected one of {_MODES}.")
 
+    db.ensure_embedding_model(conn, embedding_model)
     query_vector = _embed_query(client, embedding_model, question)
     pool_size = max(top_k, candidate_pool_size)
 
-    vector_hits = VectorStrategy().run(
+    # Fetched once and reused for both vector ranking and result-row lookup
+    # below -- VectorStrategy used to re-fetch this same filtered set itself.
+    rows = db.get_search_rows(conn, book_id=book_id, author=author, source_type=source_type)
+
+    vector_hits = VectorStrategy(rows).run(
         conn, question, query_vector, book_id, author, source_type, pool_size
     )
     if mode == "vector":
@@ -86,7 +91,6 @@ def search(
     if not fused:
         return []
 
-    rows = db.get_search_rows(conn, book_id=book_id, author=author, source_type=source_type)
     row_by_key = {(r.book_id, r.chapter_index, r.section_index, r.chunk_index): r for r in rows}
 
     results = []

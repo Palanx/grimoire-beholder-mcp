@@ -99,6 +99,14 @@ behavior change to existing PDF tests).
 
 ## Extension point 2: `RetrievalStrategy` (`retrieval/`)
 
+Unlike `SourceParser`, this is **a protocol with two hardcoded call sites in
+`search.py`, not a registry.** There is no `_STRATEGIES` list to append to:
+`search()` names `VectorStrategy` and `FtsStrategy` directly and decides in
+an `if mode == "vector"` branch which of them run. Adding a third strategy
+means editing that branching logic (and likely `_MODES`) in the composition
+root, not appending one line to a list -- see the recipe below, which is
+honest about this. Don't assume it's as drop-in as adding a `SourceParser`.
+
 ```python
 class RetrievalStrategy(Protocol):
     name: str
@@ -111,9 +119,12 @@ A `RankedHit` is `(key, score)` where `key` is the natural chunk key
 `(book_id, chapter_index, section_index, chunk_index)` -- not a surrogate
 ID, since chunks have none. Two strategies exist today:
 
-- `VectorStrategy` (`retrieval/vector.py`): fetches every embedded chunk
-  matching the filters via `db.get_search_rows`, computes cosine similarity
-  against `query_vector` in numpy, returns the top `pool_size`.
+- `VectorStrategy` (`retrieval/vector.py`): takes the filtered, embedded
+  rows (`db.SearchRow`) at construction -- `search()` fetches them once via
+  `db.get_search_rows` and reuses the same list for the final result-row
+  lookup, rather than this strategy re-querying them itself -- and computes
+  cosine similarity against `query_vector` in numpy, returning the top
+  `pool_size`.
 - `FtsStrategy` (`retrieval/fts.py`): tokenizes the question, quotes and
   OR-joins the terms (neutralizing FTS5 query syntax so arbitrary user text
   never produces a MATCH syntax error), and calls `db.search_fts`, which
@@ -142,9 +153,10 @@ gets embedded, not from some separate, less-processed copy of the text.
 
 1. Write a class in `retrieval/<name>.py` implementing `RetrievalStrategy`.
 2. Re-export it from `retrieval/__init__.py`.
-3. Wire it into `search.py`'s `search()` function -- decide whether it
-   always runs, runs only in some mode, or is one more arm fused via
-   `reciprocal_rank_fusion`.
+3. Edit `search.py`'s `search()` function -- this is a real code change to
+   the composition root, not a registration: decide whether the new
+   strategy always runs, runs only in some mode (extending `_MODES`), or is
+   one more arm fused via `reciprocal_rank_fusion`, and write that branch.
 4. Add tests: a focused one for the strategy's `run()` against seeded rows,
    and (if it changes fused ranking) an integration test in
    `tests/test_search.py` with hand-built vectors/text proving the new

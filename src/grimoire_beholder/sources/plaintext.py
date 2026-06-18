@@ -63,7 +63,9 @@ def _parse_text_document(
     chapters = []
     for title, body_start, body_end in _chapter_bounds(paragraphs, heading_re):
         located = [(i + 1, paragraphs[i]) for i in range(body_start, body_end)]
-        sections = auto_split_paragraphs(located, section_split_tokens)
+        sections = auto_split_paragraphs(
+            located, section_split_tokens, fallback_location=body_start + 1
+        )
         chapters.append(Chapter(len(chapters), title, body_start + 1, sections))
 
     return ExtractedBook(

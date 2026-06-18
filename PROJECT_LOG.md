@@ -19,10 +19,12 @@ structure) and [AGENTS.md](AGENTS.md) (operating rules). This file answers
 - 4 source formats parse via the `SourceParser` registry: `.pdf`, `.epub`, `.md`/`.markdown`, `.txt`.
 - Retrieval has 2 modes: `hybrid` (vector cosine + SQLite FTS5/BM25, fused by RRF — the default) and `vector` (cosine only, CLI/debug override via `--mode`, not exposed over MCP).
 - Filters `book_id`/`author`/`source_type` are composable and apply identically to both retrieval arms, in the CLI (`query`) and MCP (`search_book`).
-- `uv run pytest` is green: **75 passed**, 0 failed. Ollama is mocked throughout (`tests/fakes.py:FakeOllamaClient`) — the suite needs no daemon and no pulled models.
+- `uv run pytest` is green: **80 passed**, 0 failed (was 75; `tests/test_cli.py` added). Ollama is mocked throughout (`tests/fakes.py:FakeOllamaClient`) — the suite needs no daemon and no pulled models.
 - CLI commands: `ingest`, `list`, `delete`, `query`, `status`, `reindex-fts`, `serve-mcp`. `ingest`/`delete`/`reindex-fts` are CLI-only by design.
 - Single SQLite file is the whole library + checkpoint (WAL mode, FTS5 standalone virtual table, content-hash-idempotent re-ingest, per-chunk-status resumability).
 - `.mcpb` manifest (`mcpb/manifest.json`) lists all 5 tools; the bundle ships no code/deps of its own (just wires `grimoire-beholder serve-mcp` into Claude Desktop).
+- `search.search()` now calls `db.ensure_embedding_model` itself (previously only `ingest.run_ingest` did) — the CLI `query` and MCP `search_book` paths are no longer able to silently embed a query in the wrong vector space after a `config.toml` model change.
+- `RetrievalStrategy` (`retrieval/`) is documented as a protocol with two hardcoded call sites in `search.py`, not a registry — don't read it as symmetrically pluggable with `SourceParser`'s `_PARSERS` list. See ARCHITECTURE.md's extension-point-2 section.
 
 **Open / pending (deferred, not forgotten):**
 - P2 "consider" items from the local-rag idea-mining pass — proposed, not committed: JSON export of book/library metadata; an additional MCP transport (SSE/HTTP) beyond stdio; OCR for scanned PDFs via Tesseract. No design work done on any of these yet.
@@ -42,6 +44,47 @@ uv run python -c "import asyncio; from grimoire_beholder import mcp_server; prin
 ---
 
 ## Decision log (append-only, reverse-chronological — never edit or delete a past entry)
+
+```
+2026-06-18 — Architecture review fixes: embedding-model guard, page_start bug, double-fetch, CLI tests, honest RetrievalStrategy docs
+Did: Fixed five issues an architecture review surfaced, all small and
+local, no rewrites: (1) search.search() now calls db.ensure_embedding_model
+itself, closing a gap where query/search_book could silently embed against
+a mismatched model -- only ingest.run_ingest checked this before. (2)
+sources/common.py's auto_split_paragraphs hardcoded page_start=0 for its
+empty-input fallback; gave it a fallback_location parameter and had
+plaintext.py pass the chapter's real starting location, fixing a
+reproducible bug where a markdown file with two adjacent headings and no
+body between them produced a section sorting before its own chapter. (3)
+VectorStrategy used to re-fetch db.get_search_rows itself even though
+search.py already fetches the same filtered rows for the post-fusion
+metadata lookup -- it now takes rows via its constructor, fetched once.
+(4) Added tests/test_cli.py (5 tests) -- cli.py had zero dedicated tests
+before this. (5) Reworded ARCHITECTURE.md's extension-point-2 section and
+AGENTS.md's one-liner: RetrievalStrategy is a protocol with two hardcoded
+call sites in search.py, not a registry like SourceParser's _PARSERS list;
+adding a strategy means editing search()'s branching, not appending to a
+list. The docs previously presented both as parallel "two explicit
+extension points" without flagging that asymmetry.
+
+Why: All five came from actually reading the code against what
+ARCHITECTURE.md/AGENTS.md claimed, rather than trusting the docs. (1) was a
+real invariant violation (AGENTS.md claimed model-mismatch was "enforced on
+every connect()" -- it wasn't, anywhere on the search path). (2) was
+verified live (reproduced the page_start=0 sort inversion, then confirmed
+the fix). (3)-(4) are the kind of small, low-risk gaps a thin-interface,
+read-only architecture invites if "thin" gets read as "doesn't need
+tests/doesn't matter how many times we query." (5) matters because an
+agent reading "two explicit extension points" with parallel recipes will
+reasonably assume parallel effort to extend either one; only one of them
+actually is.
+
+Affects: src/grimoire_beholder/search.py, src/grimoire_beholder/sources/common.py,
+src/grimoire_beholder/sources/plaintext.py, src/grimoire_beholder/retrieval/vector.py,
+tests/test_cli.py (new), ARCHITECTURE.md, AGENTS.md.
+
+Follow-ups: None outstanding. uv run pytest: 80 passed (was 75).
+```
 
 ```
 2026-06-18 — Add continuity docs: AGENTS.md + PROJECT_LOG.md

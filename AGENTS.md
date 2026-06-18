@@ -20,7 +20,7 @@ why past decisions were made*, see [PROJECT_LOG.md](PROJECT_LOG.md).
 2. **All Ollama access goes through `OllamaClient`** (`ollama_client.py`). Never `import ollama` in `ingest.py`, `contextualize.py`, `embed.py`, `search.py`, or `cli.py`/`mcp_server.py` logic — take a client as a parameter. This is what lets the whole pipeline run under test with `FakeOllamaClient` (`tests/fakes.py`) and no daemon.
 3. **`db.py` is the only module that touches `sqlite3`.** Every other module calls a `db.*` function; none opens its own connection/cursor or writes raw SQL.
 4. **A chunk never crosses a section boundary.** `chunk_section`/`split_text` is always called with exactly one section's text.
-5. **One embedding model per database**, enforced by `db.ensure_embedding_model` on every `connect()`. Never bypass or weaken this check.
+5. **One embedding model per database**, enforced by `db.ensure_embedding_model`, called at the top of `ingest.run_ingest` and `search.search` -- not inside `db.connect()` itself, so any new code path that embeds or reads embeddings must call it explicitly. Never bypass or weaken this check.
 6. **Hybrid search augments vector search, never replaces it.** `search.search()` always runs `VectorStrategy`; `FtsStrategy` is additive in `mode="hybrid"` (the default) and skipped only in `mode="vector"`. Both arms must always receive the same filters (`book_id`/`author`/`source_type`) and rank the same contextualized, embedded chunk corpus.
 7. **`cogito` runs in standard mode only** — never set a system/prompt that triggers its deep-thinking subroutine. Keep the defensive `<think>...</think>` strip in `RealOllamaClient.generate` even if it looks unreachable.
 8. **Natural composite keys only** (`book_id, chapter_index, section_index[, chunk_index]`) on `chapters`/`sections`/`chunks`. Inserts must stay idempotent (`INSERT OR REPLACE` / `ON CONFLICT DO NOTHING`); never add a surrogate id to these tables.
@@ -31,7 +31,7 @@ why past decisions were made*, see [PROJECT_LOG.md](PROJECT_LOG.md).
 
 - Type hints + a short docstring on every public function; docstrings explain **why**, not what.
 - Dependency rule (one-way): `cli.py`/`mcp_server.py` → `ingest.py` → `{sources/, chunk.py, contextualize.py, embed.py}` → `search.py` → `retrieval/` → `db.py`. Never reach sideways or upward.
-- Two explicit extension points: `SourceParser` (`sources/`) and `RetrievalStrategy` (`retrieval/`). Use ARCHITECTURE.md's recipes to add a new one — don't invent a different registration pattern.
+- Two explicit extension points, not equally pluggable: `SourceParser` (`sources/`) is a true registry — append to `_PARSERS`, nothing else changes. `RetrievalStrategy` (`retrieval/`) is a protocol with two hardcoded call sites in `search.py` — adding one means editing that composition root's branching, not registering it. Use ARCHITECTURE.md's recipes for each; don't invent a different pattern for either.
 - No comments stating what code does; only why, when it's non-obvious.
 
 ## Where things live

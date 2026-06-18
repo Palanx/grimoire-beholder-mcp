@@ -47,7 +47,7 @@ def content_hash_of(path: Path) -> str:
 
 
 def auto_split_paragraphs(
-    paragraphs: list[tuple[int, str]], section_split_tokens: int
+    paragraphs: list[tuple[int, str]], section_split_tokens: int, fallback_location: int = 0
 ) -> list[Section]:
     """Greedily pack (location, paragraph_text) pairs into ~section_split_tokens sections.
 
@@ -56,10 +56,15 @@ def auto_split_paragraphs(
     its own oversized section. When everything fits in one budget, this
     naturally collapses to a single section -- callers don't need a
     separate "is this chapter short" branch.
+
+    `fallback_location` is used only when `paragraphs` is empty (e.g. a
+    markdown chapter with no body between two adjacent headings) -- pass
+    the chapter's own starting location so the resulting empty section
+    still sorts at or after its chapter instead of always sorting first.
     """
     max_chars = section_split_tokens * _CHARS_PER_TOKEN
     if not paragraphs:
-        return [Section(0, None, "", 0)]
+        return [Section(0, None, "", fallback_location)]
 
     sections: list[Section] = []
     current_parts: list[str] = []

@@ -11,7 +11,18 @@ from .strategies import RankedHit
 
 
 class VectorStrategy:
+    """Cosine similarity over embedded chunks already fetched by the caller.
+
+    Takes `rows` at construction, rather than querying for them itself, so
+    `search.search()` can fetch the filtered corpus once and reuse it both
+    here and for the final result rows -- avoiding a second identical
+    `db.get_search_rows` call on every search.
+    """
+
     name = "vector"
+
+    def __init__(self, rows: list[db.SearchRow]) -> None:
+        self._rows = rows
 
     def run(
         self,
@@ -23,7 +34,7 @@ class VectorStrategy:
         source_type: str | None,
         pool_size: int,
     ) -> list[RankedHit]:
-        rows = db.get_search_rows(conn, book_id=book_id, author=author, source_type=source_type)
+        rows = self._rows
         if not rows:
             return []
 
