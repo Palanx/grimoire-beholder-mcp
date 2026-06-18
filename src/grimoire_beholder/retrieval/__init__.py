@@ -1,6 +1,6 @@
 """Retrieval strategies, RRF fusion, and the RetrievalStrategy extension point.
 
-`book_rag.search` is the composition root that calls into this package; it
+`grimoire_beholder.search` is the composition root that calls into this package; it
 decides which strategies to run and how to fuse them. Nothing in here
 knows about the CLI or the MCP server.
 """

@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from book_rag.sources import get_parser
-from book_rag.sources.epub import EpubParser
-from book_rag.sources.pdf import PdfParser
-from book_rag.sources.plaintext import MarkdownParser, PlaintextParser
+from grimoire_beholder.sources import get_parser
+from grimoire_beholder.sources.epub import EpubParser
+from grimoire_beholder.sources.pdf import PdfParser
+from grimoire_beholder.sources.plaintext import MarkdownParser, PlaintextParser
 
 
 @pytest.mark.parametrize(

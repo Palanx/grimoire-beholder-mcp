@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from book_rag import db, embed
+from grimoire_beholder import db, embed
 from fakes import FakeOllamaClient
 
 

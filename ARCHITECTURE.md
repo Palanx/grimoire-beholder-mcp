@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes how book-rag is layered, the two explicit extension
+This document describes how grimoire-beholder-mcp is layered, the two explicit extension
 points (`SourceParser`, `RetrievalStrategy`), and the recipes for using
 them. It assumes you've read the README's data-model and resume sections;
 this is the "how it's built," not the "how to run it." For operating

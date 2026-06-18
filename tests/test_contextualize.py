@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from book_rag import contextualize, db
+from grimoire_beholder import contextualize, db
 from fakes import FakeOllamaClient
 
 

@@ -1,4 +1,4 @@
-"""Configuration loading for book-rag, backed by a single config.toml."""
+"""Configuration loading for grimoire-beholder-mcp, backed by a single config.toml."""
 
 from __future__ import annotations
 

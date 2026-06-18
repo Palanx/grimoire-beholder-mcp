@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from book_rag import db, search
+from grimoire_beholder import db, search
 from fakes import FakeOllamaClient
 
 

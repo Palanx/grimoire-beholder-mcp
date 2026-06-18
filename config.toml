@@ -1,4 +1,4 @@
-# book-rag configuration. All values have built-in defaults, so this file
+# grimoire-beholder-mcp configuration. All values have built-in defaults, so this file
 # works as-is with zero edits.
 
 # Ollama model used to generate section summaries and chunk context.

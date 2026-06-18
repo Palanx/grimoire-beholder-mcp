@@ -11,7 +11,7 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from book_rag import db as db_mod
+from grimoire_beholder import db as db_mod
 
 _SENT = "The quick brown fox jumps over the lazy dog and contemplates existence. "
 

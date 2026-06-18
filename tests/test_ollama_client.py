@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from book_rag import ollama_client
+from grimoire_beholder import ollama_client
 
 
 def test_strip_think_removes_block() -> None:

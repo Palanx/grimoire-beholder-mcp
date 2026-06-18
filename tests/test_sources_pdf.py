@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from book_rag.sources import pdf
+from grimoire_beholder.sources import pdf
 
 
 def test_toc_subentries_become_sections(toc_pdf_path: Path) -> None:

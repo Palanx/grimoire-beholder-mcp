@@ -49,43 +49,6 @@ wheels = [
 ]
 
 [[package]]
-name = "book-rag"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "ebooklib" },
-    { name = "lxml" },
-    { name = "mcp" },
-    { name = "numpy" },
-    { name = "ollama" },
-    { name = "pymupdf" },
-    { name = "tenacity" },
-    { name = "tqdm" },
-    { name = "typer" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "ebooklib", specifier = ">=0.20" },
-    { name = "lxml", specifier = ">=6.1.1" },
-    { name = "mcp", specifier = ">=1.28.0" },
-    { name = "numpy", specifier = ">=2.4.6" },
-    { name = "ollama", specifier = ">=0.6.2" },
-    { name = "pymupdf", specifier = ">=1.27.2.3" },
-    { name = "tenacity", specifier = ">=9.1.4" },
-    { name = "tqdm", specifier = ">=4.68.3" },
-    { name = "typer", specifier = ">=0.26.7" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=9.1.0" }]
-
-[[package]]
 name = "certifi"
 version = "2026.6.17"
 source = { registry = "https://pypi.org/simple" }
@@ -234,6 +197,43 @@ sdist = { url = "https://files.pythonhosted.org/packages/77/85/322e8882a582d4b70
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bf/ee/aa015c5de8b0dc42a8e507eae8c2de5d1c0e068c896858fec6d502402ed6/ebooklib-0.20-py3-none-any.whl", hash = "sha256:fff5322517a37e31c972d27be7d982cc3928c16b3dcc5fd7e8f7c0f5d7bcf42b", size = 40995, upload-time = "2025-10-26T20:56:19.104Z" },
 ]
+
+[[package]]
+name = "grimoire-beholder-mcp"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "ebooklib" },
+    { name = "lxml" },
+    { name = "mcp" },
+    { name = "numpy" },
+    { name = "ollama" },
+    { name = "pymupdf" },
+    { name = "tenacity" },
+    { name = "tqdm" },
+    { name = "typer" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "ebooklib", specifier = ">=0.20" },
+    { name = "lxml", specifier = ">=6.1.1" },
+    { name = "mcp", specifier = ">=1.28.0" },
+    { name = "numpy", specifier = ">=2.4.6" },
+    { name = "ollama", specifier = ">=0.6.2" },
+    { name = "pymupdf", specifier = ">=1.27.2.3" },
+    { name = "tenacity", specifier = ">=9.1.4" },
+    { name = "tqdm", specifier = ">=4.68.3" },
+    { name = "typer", specifier = ">=0.26.7" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.1.0" }]
 
 [[package]]
 name = "h11"

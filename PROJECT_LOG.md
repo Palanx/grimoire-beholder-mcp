@@ -22,7 +22,7 @@ structure) and [AGENTS.md](AGENTS.md) (operating rules). This file answers
 - `uv run pytest` is green: **75 passed**, 0 failed. Ollama is mocked throughout (`tests/fakes.py:FakeOllamaClient`) — the suite needs no daemon and no pulled models.
 - CLI commands: `ingest`, `list`, `delete`, `query`, `status`, `reindex-fts`, `serve-mcp`. `ingest`/`delete`/`reindex-fts` are CLI-only by design.
 - Single SQLite file is the whole library + checkpoint (WAL mode, FTS5 standalone virtual table, content-hash-idempotent re-ingest, per-chunk-status resumability).
-- `.mcpb` manifest (`mcpb/manifest.json`) lists all 5 tools; the bundle ships no code/deps of its own (just wires `book-rag serve-mcp` into Claude Desktop).
+- `.mcpb` manifest (`mcpb/manifest.json`) lists all 5 tools; the bundle ships no code/deps of its own (just wires `grimoire-beholder serve-mcp` into Claude Desktop).
 
 **Open / pending (deferred, not forgotten):**
 - P2 "consider" items from the local-rag idea-mining pass — proposed, not committed: JSON export of book/library metadata; an additional MCP transport (SSE/HTTP) beyond stdio; OCR for scanned PDFs via Tesseract. No design work done on any of these yet.
@@ -32,11 +32,11 @@ structure) and [AGENTS.md](AGENTS.md) (operating rules). This file answers
 **How to resume / verify health:**
 ```
 uv run pytest                 # expect: all passed, 0 failed
-uv run book-rag --help        # confirms CLI wiring end-to-end
+uv run grimoire-beholder --help        # confirms CLI wiring end-to-end
 ```
 If you need to check the MCP tool surface directly without spinning up `serve-mcp`:
 ```
-uv run python -c "import asyncio; from book_rag import mcp_server; print(sorted(t.name for t in asyncio.run(mcp_server.mcp.list_tools())))"
+uv run python -c "import asyncio; from grimoire_beholder import mcp_server; print(sorted(t.name for t in asyncio.run(mcp_server.mcp.list_tools())))"
 ```
 
 ---
@@ -82,7 +82,7 @@ call get_section already is -- considered and rejected returning section
 text previews inline, since that would blur the two tools' roles and bloat
 every outline response for books with many sections.
 
-Affects: src/book_rag/db.py, src/book_rag/mcp_server.py,
+Affects: src/grimoire_beholder/db.py, src/grimoire_beholder/mcp_server.py,
 mcpb/manifest.json, README.md, ARCHITECTURE.md, tests/test_db.py,
 tests/test_mcp_server.py.
 
@@ -133,7 +133,7 @@ Why (the load-bearing "why nots"):
   left as future work, not oversights.
 - Explicitly skipped (out of scope, not just deferred): local-rag's email/
   RSS/source-code/Obsidian-vault ingestion, its menubar GUI app, and its
-  DMG installer -- book-rag is a focused multi-book RAG library, not a
+  DMG installer -- grimoire-beholder-mcp is a focused multi-book RAG library, not a
   general ingestion platform or a desktop app.
 - MCP stayed strictly read-only: ingest/delete/reindex-fts are CLI-only
   and never wired into mcp_server.py, so a chat agent can search and read
@@ -141,10 +141,10 @@ Why (the load-bearing "why nots"):
   agent corrupting or deleting a user's library) for a capability nobody
   asked for.
 
-Affects: src/book_rag/sources/ (new package), src/book_rag/retrieval/ (new
-package), src/book_rag/db.py, src/book_rag/search.py (rewritten),
-src/book_rag/embed.py, src/book_rag/ingest.py, src/book_rag/cli.py,
-src/book_rag/mcp_server.py, src/book_rag/config.py, mcpb/manifest.json,
+Affects: src/grimoire_beholder/sources/ (new package), src/grimoire_beholder/retrieval/ (new
+package), src/grimoire_beholder/db.py, src/grimoire_beholder/search.py (rewritten),
+src/grimoire_beholder/embed.py, src/grimoire_beholder/ingest.py, src/grimoire_beholder/cli.py,
+src/grimoire_beholder/mcp_server.py, src/grimoire_beholder/config.py, mcpb/manifest.json,
 ARCHITECTURE.md (new), README.md, full test suite (38 -> 72 tests).
 
 Follow-ups: P2 items above remain unimplemented by design. get_book_outline
@@ -152,8 +152,8 @@ Follow-ups: P2 items above remain unimplemented by design. get_book_outline
 ```
 
 ```
-(reconstructed — exact date unknown) — Initial book-rag build: hierarchy + contextual retrieval + Ollama DI seam
-Did: Built the original book-rag: PDF-only ingestion into a Book -> Chapter
+(reconstructed — exact date unknown) — Initial grimoire-beholder-mcp build: hierarchy + contextual retrieval + Ollama DI seam
+Did: Built the original grimoire-beholder-mcp: PDF-only ingestion into a Book -> Chapter
 -> Section -> Chunk hierarchy; Anthropic's Contextual Retrieval technique
 (LLM-generated context per chunk, scoped to its section's summary) before
 embedding; a single shared SQLite library file as both the index and the
@@ -187,7 +187,7 @@ Why (the load-bearing "why nots"):
   ingest/delete were CLI-only by design before hybrid search ever existed
   -- this wasn't a retrofit, it was the original posture.
 
-Affects: src/book_rag/{cli,config,contextualize,db,embed,extract,ingest,
+Affects: src/grimoire_beholder/{cli,config,contextualize,db,embed,extract,ingest,
 mcp_server,ollama_client}.py (original layout; `extract.py` was later
 replaced by the sources/ package), tests/ (original suite).
 

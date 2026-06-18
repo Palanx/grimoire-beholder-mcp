@@ -178,7 +178,7 @@ def _check_fts5_available(conn: sqlite3.Connection) -> None:
     except sqlite3.OperationalError as exc:
         raise FTS5UnavailableError(
             "This SQLite build does not have the FTS5 extension compiled in, but "
-            "book-rag's hybrid search requires it. Check `PRAGMA compile_options` "
+            "grimoire-beholder-mcp's hybrid search requires it. Check `PRAGMA compile_options` "
             "for ENABLE_FTS5, or use a Python/SQLite build that includes it -- "
             "the official python.org installers and Homebrew's sqlite3 both do."
         ) from exc

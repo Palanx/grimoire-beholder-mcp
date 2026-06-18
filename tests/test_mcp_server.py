@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from book_rag import db, mcp_server
-from book_rag.config import Config
+from grimoire_beholder import db, mcp_server
+from grimoire_beholder.config import Config
 from fakes import FakeOllamaClient
 
 _CONFIG_KWARGS = dict(

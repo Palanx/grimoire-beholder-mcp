@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from book_rag import db, ingest
-from book_rag.config import Config
-from book_rag.sources import pdf
+from grimoire_beholder import db, ingest
+from grimoire_beholder.config import Config
+from grimoire_beholder.sources import pdf
 from fakes import FakeOllamaClient
 
 _CONFIG = Config(

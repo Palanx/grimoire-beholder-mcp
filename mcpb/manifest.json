@@ -1,15 +1,15 @@
 {
   "manifest_version": "0.3",
-  "name": "book-rag",
-  "display_name": "book-rag",
+  "name": "grimoire-beholder-mcp",
+  "display_name": "grimoire-beholder-mcp",
   "version": "0.1.0",
   "description": "Read-only hybrid (semantic + keyword) search over your local, multi-book RAG library -- fully offline via Ollama.",
-  "long_description": "book-rag parses PDFs, EPUBs, markdown, and plain text into a Book -> Chapter -> Section -> Chunk hierarchy, contextualizes and embeds every chunk locally via Ollama, indexes it for both vector and SQLite FTS5 keyword search, and stores everything in one shared SQLite library. This extension wires Claude Desktop to that library's read-only MCP server: list_books, get_book_outline (the chapter/section map), search_book (with optional author/source_type filters), get_section, and book_status. Ingesting and deleting books stays CLI-only by design and is never exposed here.\n\nThis bundle does not install Python, Ollama, models, or book-rag's dependencies -- those must already be set up by following the project's README (`uv sync`, pulling the configured Ollama models, and running `book-rag ingest` at least once) before this extension is installed. Installing it first will leave the server unable to start.",
+  "long_description": "grimoire-beholder-mcp parses PDFs, EPUBs, markdown, and plain text into a Book -> Chapter -> Section -> Chunk hierarchy, contextualizes and embeds every chunk locally via Ollama, indexes it for both vector and SQLite FTS5 keyword search, and stores everything in one shared SQLite library. This extension wires Claude Desktop to that library's read-only MCP server: list_books, get_book_outline (the chapter/section map), search_book (with optional author/source_type filters), get_section, and book_status. Ingesting and deleting books stays CLI-only by design and is never exposed here.\n\nThis bundle does not install Python, Ollama, models, or grimoire-beholder-mcp's dependencies -- those must already be set up by following the project's README (`uv sync`, pulling the configured Ollama models, and running `grimoire-beholder ingest` at least once) before this extension is installed. Installing it first will leave the server unable to start.",
   "author": {
     "name": "Palanx",
     "email": "tmunizq@gmail.com"
   },
-  "homepage": "https://github.com/Palanx/contextual-retrieval-rag",
+  "homepage": "https://github.com/Palanx/grimoire-beholder-mcp",
   "server": {
     "type": "python",
     "entry_point": "server/serve.py",
@@ -21,7 +21,7 @@
         "${user_config.project_dir}",
         "--directory",
         "${user_config.library_dir}",
-        "book-rag",
+        "grimoire-beholder",
         "serve-mcp"
       ]
     }
@@ -45,14 +45,14 @@
   "user_config": {
     "project_dir": {
       "type": "directory",
-      "title": "book-rag project directory",
-      "description": "Absolute path to the book-rag repo clone where you ran `uv sync` (must contain pyproject.toml).",
+      "title": "grimoire-beholder-mcp project directory",
+      "description": "Absolute path to the grimoire-beholder-mcp repo clone where you ran `uv sync` (must contain pyproject.toml).",
       "required": true
     },
     "library_dir": {
       "type": "directory",
       "title": "Library directory",
-      "description": "Absolute path to the directory containing your config.toml and book.db -- the directory you ran `book-rag ingest` from.",
+      "description": "Absolute path to the directory containing your config.toml and book.db -- the directory you ran `grimoire-beholder ingest` from.",
       "required": true
     }
   }

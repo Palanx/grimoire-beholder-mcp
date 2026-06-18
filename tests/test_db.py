@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from book_rag import db
+from grimoire_beholder import db
 
 
 def test_insert_chunk_idempotent_under_natural_key(conn: sqlite3.Connection) -> None:

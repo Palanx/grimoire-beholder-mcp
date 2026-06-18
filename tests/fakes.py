@@ -1,4 +1,4 @@
-"""Deterministic test doubles for book_rag.ollama_client.OllamaClient.
+"""Deterministic test doubles for grimoire_beholder.ollama_client.OllamaClient.
 
 Used everywhere in the suite so tests run with no Ollama daemon and no
 models pulled, while still exercising the real pipeline code.

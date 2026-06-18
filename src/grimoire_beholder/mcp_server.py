@@ -1,4 +1,4 @@
-"""Read-only MCP server exposing the book-rag library to Claude.
+"""Read-only MCP server exposing the grimoire-beholder-mcp library to Claude.
 
 Exactly five tools, all read-only: nothing here can ingest or delete a
 book, and no cloud LLM is ever called -- the only model invoked is the
@@ -17,7 +17,7 @@ from . import db, ollama_client
 from . import search as search_mod
 from .config import load_config
 
-mcp = FastMCP("book-rag")
+mcp = FastMCP("grimoire-beholder-mcp")
 
 
 @mcp.tool()

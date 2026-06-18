@@ -9,10 +9,10 @@ why past decisions were made*, see [PROJECT_LOG.md](PROJECT_LOG.md).
 
 - Install deps: `uv sync` — **uv only, never `pip install`, never hand-edit `.venv`.**
 - Run the test suite: `uv run pytest`
-- Run the CLI: `uv run book-rag <command>` — `ingest`, `list`, `delete`, `query`, `status`, `reindex-fts`, `serve-mcp`
-- Start the MCP server directly: `uv run book-rag serve-mcp`
+- Run the CLI: `uv run grimoire-beholder <command>` — `ingest`, `list`, `delete`, `query`, `status`, `reindex-fts`, `serve-mcp`
+- Start the MCP server directly: `uv run grimoire-beholder serve-mcp`
 - Add a dependency: `uv add <package>` (never edit `pyproject.toml`'s `dependencies` by hand)
-- Rebuild the `.mcpb` bundle after touching `mcpb/manifest.json`: `mcpb validate mcpb/manifest.json && mcpb pack mcpb book-rag.mcpb`
+- Rebuild the `.mcpb` bundle after touching `mcpb/manifest.json`: `mcpb validate mcpb/manifest.json && mcpb pack mcpb grimoire-beholder-mcp.mcpb`
 
 ## Hard invariants — do not violate
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from book_rag.retrieval import RankedHit, reciprocal_rank_fusion
+from grimoire_beholder.retrieval import RankedHit, reciprocal_rank_fusion
 
 
 def test_rrf_rewards_items_ranked_well_in_both_lists() -> None:

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from ebooklib import epub
 
-from book_rag.sources.epub import EpubParser
+from grimoire_beholder.sources.epub import EpubParser
 
 
 @pytest.fixture

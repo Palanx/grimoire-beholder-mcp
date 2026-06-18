@@ -1,4 +1,4 @@
-# book-rag
+# grimoire-beholder-mcp
 
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 ![Platform: Apple Silicon](https://img.shields.io/badge/platform-Apple%20Silicon-lightgrey)
@@ -18,7 +18,7 @@ contextualized chunks, fused with Reciprocal Rank Fusion -- see
 to extend them. A built-in MCP server exposes the whole library to Claude
 as read-only tools.
 
-Getting book-rag running is two separate jobs: **setting it up** (Python
+Getting grimoire-beholder-mcp running is two separate jobs: **setting it up** (Python
 deps, Ollama, models, and at least one ingested book -- all manual, all
 local) and **connecting it to Claude Desktop** (one click, via a `.mcpb`
 bundle). Only the second part is "one click" -- there is no zero-prerequisite
@@ -75,7 +75,7 @@ another one.
 
 Long, dense chapters (e.g. a 40-page chapter on philosophy or psychology)
 are too broad for one summary to usefully situate every chunk inside them.
-book-rag inserts a **Section** level between chapter and chunk, derived per
+grimoire-beholder-mcp inserts a **Section** level between chapter and chunk, derived per
 chapter with this priority:
 
 1. If the source has sub-headings under the chapter (a PDF's TOC
@@ -114,7 +114,7 @@ cosine ranking.
 
 The FTS5 index is populated incrementally as chunks are embedded -- no
 separate indexing step. If you ever need to rebuild it from scratch (e.g.
-after restoring an old database backup), run `book-rag reindex-fts`.
+after restoring an old database backup), run `grimoire-beholder reindex-fts`.
 
 ## Setup (manual, run once, in order)
 
@@ -146,7 +146,7 @@ use as your library (where `config.toml` and `book.db` will live):
    `llm_model` / `embedding_model` there, pull whatever you set instead.
 
 4. **Confirm Ollama is running** at `http://localhost:11434` (`ollama serve`,
-   or just have the Ollama app open). `book-rag` checks for required models
+   or just have the Ollama app open). `grimoire-beholder-mcp` checks for required models
    on every run and refuses to proceed (with the exact `ollama pull ...`
    command) if Ollama is unreachable or a model is missing -- it never pulls
    one for you.
@@ -154,7 +154,7 @@ use as your library (where `config.toml` and `book.db` will live):
 5. **Ingest at least one book** (PDF, EPUB, markdown, or plain text):
 
    ```bash
-   uv run book-rag ingest path/to/book.pdf [--name slug]
+   uv run grimoire-beholder ingest path/to/book.pdf [--name slug]
    ```
 
    This is slow (every section gets an LLM summary, every chunk gets LLM
@@ -163,18 +163,18 @@ use as your library (where `config.toml` and `book.db` will live):
    instead of starting over. See [How resume works](#how-resume-works) below.
 
 Once you've done this once, the library is ready to query from the CLI
-(`uv run book-rag query "..."`) and ready to connect to Claude.
+(`uv run grimoire-beholder query "..."`) and ready to connect to Claude.
 
 ## Usage
 
 ```bash
-uv run book-rag ingest "<path-to-book.[pdf|epub|md|txt]>" [--name "Display Name"] [--force]
-uv run book-rag list
-uv run book-rag delete <slug> [--yes]
-uv run book-rag query "<your question>" [--book <slug>] [--author <name>] [--type <pdf|epub|markdown|text>] [--mode hybrid|vector] [--expand]
-uv run book-rag status
-uv run book-rag reindex-fts [--book <slug>]
-uv run book-rag serve-mcp
+uv run grimoire-beholder ingest "<path-to-book.[pdf|epub|md|txt]>" [--name "Display Name"] [--force]
+uv run grimoire-beholder list
+uv run grimoire-beholder delete <slug> [--yes]
+uv run grimoire-beholder query "<your question>" [--book <slug>] [--author <name>] [--type <pdf|epub|markdown|text>] [--mode hybrid|vector] [--expand]
+uv run grimoire-beholder status
+uv run grimoire-beholder reindex-fts [--book <slug>]
+uv run grimoire-beholder serve-mcp
 ```
 
 - **`ingest`** picks a parser by file extension (see
@@ -222,25 +222,25 @@ reindex it.
 ## Connect to Claude (one-click via .mcpb)
 
 **Prerequisite: finish Setup above first.** The `.mcpb` bundle only wires an
-already-working `book-rag serve-mcp` into Claude Desktop's settings -- it
+already-working `grimoire-beholder serve-mcp` into Claude Desktop's settings -- it
 does not install Python, uv, Ollama, the models, or ingest any books. If you
 install it before completing Setup, Claude Desktop will show the extension
 as installed but the server will fail to start the moment it's invoked.
 
-1. Build (or download) `book-rag.mcpb` -- see
+1. Build (or download) `grimoire-beholder-mcp.mcpb` -- see
    [Building the bundle](#building-the-bundle) below if you need to build
    it yourself.
 2. In Claude Desktop, go to **Settings → Extensions → Install Extension**
-   and pick `book-rag.mcpb`.
+   and pick `grimoire-beholder-mcp.mcpb`.
 3. When prompted for configuration, fill in:
-   - **book-rag project directory** -- the absolute path to this repo clone
+   - **grimoire-beholder-mcp project directory** -- the absolute path to this repo clone
      (where you ran `uv sync`).
    - **Library directory** -- the absolute path to the directory containing
-     your `config.toml` and `book.db` (where you ran `book-rag ingest`).
+     your `config.toml` and `book.db` (where you ran `grimoire-beholder ingest`).
      This can be the same path as the project directory, or anywhere else.
 
 That's the "one click" part: Claude Desktop generates the server config for
-you from those two paths and starts `book-rag serve-mcp` itself.
+you from those two paths and starts `grimoire-beholder serve-mcp` itself.
 
 ### Manual alternative (no .mcpb)
 
@@ -250,15 +250,15 @@ You can wire the same server in by hand by adding it to
 ```json
 {
   "mcpServers": {
-    "book-rag": {
+    "grimoire-beholder-mcp": {
       "command": "uv",
       "args": [
         "run",
         "--project",
-        "/absolute/path/to/book-rag",
+        "/absolute/path/to/grimoire-beholder-mcp",
         "--directory",
         "/absolute/path/to/your/library",
-        "book-rag",
+        "grimoire-beholder",
         "serve-mcp"
       ]
     }
@@ -266,7 +266,7 @@ You can wire the same server in by hand by adding it to
 }
 ```
 
-`--project` points at this repo (so `uv` can find the `book-rag` entry
+`--project` points at this repo (so `uv` can find the `grimoire-beholder` entry
 point and its synced environment); `--directory` is the directory
 containing the `config.toml` and `book.db` for the library you want Claude
 to search -- it can be anywhere, and is typically *not* this repo. Both
@@ -313,12 +313,12 @@ Once connected, there are two natural flows:
 
 The bundle source lives in `mcpb/` (`manifest.json` plus a documentation
 stub -- it ships no code or dependencies; see the `long_description` in the
-manifest for why). To build `book-rag.mcpb` from it:
+manifest for why). To build `grimoire-beholder-mcp.mcpb` from it:
 
 ```bash
 npm install -g @anthropic-ai/mcpb   # one-time; the official MCPB CLI
 mcpb validate mcpb/manifest.json
-mcpb pack mcpb book-rag.mcpb
+mcpb pack mcpb grimoire-beholder-mcp.mcpb
 ```
 
 Re-run `mcpb pack` after any change to `mcpb/manifest.json`.
@@ -328,7 +328,7 @@ Re-run `mcpb pack` after any change to `mcpb/manifest.json`.
 Everything -- books, chapters, sections, chunks, generated context, and
 embeddings -- is stored in a single SQLite database, `book.db` by default
 (configurable via `db_path` in `config.toml`), in the directory you run
-`book-rag` from. There is no separate checkpoint file: the database *is*
+`grimoire-beholder-mcp` from. There is no separate checkpoint file: the database *is*
 the checkpoint, and it's shared across every book in the library.
 
 All books in one database must share the same embedding model: the model
@@ -337,7 +337,7 @@ ingest -- of any book -- with a different `embedding_model` fails loudly
 rather than silently mixing incompatible vector spaces. To switch embedding
 models, point `db_path` at a fresh file to start a new index.
 
-Hybrid search requires SQLite's FTS5 extension, which `book-rag` checks for
+Hybrid search requires SQLite's FTS5 extension, which `grimoire-beholder-mcp` checks for
 on every `connect()` and fails loudly (not silently degrading to vector-only)
 if it's missing. The official python.org installers and Homebrew's `sqlite3`
 both ship with it; this has not been an issue in practice.

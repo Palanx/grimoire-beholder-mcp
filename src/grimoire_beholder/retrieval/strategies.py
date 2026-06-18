@@ -4,7 +4,7 @@ To add a new retrieval strategy: write a class with a `name` and a `run`
 method matching `RetrievalStrategy` below, in its own module here. It
 receives both the raw question and its embedded query vector so it can use
 whichever (or both) it needs without changing the interface. Wire it into
-`book_rag.search` if it should participate in fusion.
+`grimoire_beholder.search` if it should participate in fusion.
 """
 
 from __future__ import annotations

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from book_rag.sources.plaintext import MarkdownParser, PlaintextParser
+from grimoire_beholder.sources.plaintext import MarkdownParser, PlaintextParser
 
 
 def test_markdown_top_level_headings_become_chapters(tmp_path: Path) -> None:

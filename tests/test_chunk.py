@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from book_rag.chunk import chunk_section
+from grimoire_beholder.chunk import chunk_section
 
 
 def test_chunk_size_approximately_respected() -> None:
