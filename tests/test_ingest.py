@@ -25,6 +25,7 @@ _CONFIG = Config(
     retrieval_mode="hybrid",
     candidate_pool_size=50,
     rrf_k=60,
+    num_ctx=4096,
 )
 
 

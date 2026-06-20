@@ -42,6 +42,10 @@ htmlcov/
 # Packaged MCP bundle (build artifact zipped from mcpb/)
 *.mcpb
 
+# Diagnostic CLI output (dump-toc-text / extract-toc default --out paths)
+toc_dump.txt
+toc_extracted.json
+
 # macOS
 .DS_Store
 

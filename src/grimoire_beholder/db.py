@@ -13,6 +13,7 @@ model the index was built with -- see `ensure_embedding_model`.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 
@@ -65,6 +66,12 @@ CREATE TABLE IF NOT EXISTS chunks (
     page_start INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     PRIMARY KEY (book_id, chapter_index, section_index, chunk_index)
+);
+
+CREATE TABLE IF NOT EXISTS pdf_toc_cache (
+    content_hash TEXT PRIMARY KEY,
+    chapters_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_chapters_book ON chapters(book_id);
@@ -313,6 +320,35 @@ def chapter_count(conn: sqlite3.Connection, book_id: int) -> int:
 
 def _row_to_chapter(row: sqlite3.Row) -> Chapter:
     return Chapter(row["book_id"], row["chapter_index"], row["title"], row["page_start"])
+
+
+# -- PDF TOC cache (LLM-extracted, offset-resolved chapter bounds) ----------
+
+
+def get_cached_pdf_toc(conn: sqlite3.Connection, content_hash: str) -> list[tuple[str, int, int]] | None:
+    """Return a previously validated (title, page_start, page_end) chapter list, if cached.
+
+    Keyed by content_hash rather than book_id: extraction runs before the
+    book row exists, and this also makes re-ingesting the same file under a
+    different slug reuse the cache for free.
+    """
+    row = conn.execute(
+        "SELECT chapters_json FROM pdf_toc_cache WHERE content_hash = ?", (content_hash,)
+    ).fetchone()
+    if row is None:
+        return None
+    return [tuple(entry) for entry in json.loads(row["chapters_json"])]
+
+
+def set_cached_pdf_toc(
+    conn: sqlite3.Connection, content_hash: str, chapter_bounds: list[tuple[str, int, int]]
+) -> None:
+    """Persist a validated, offset-resolved chapter list so re-ingestion never re-calls the LLM."""
+    conn.execute(
+        "INSERT OR REPLACE INTO pdf_toc_cache (content_hash, chapters_json) VALUES (?, ?)",
+        (content_hash, json.dumps([list(entry) for entry in chapter_bounds])),
+    )
+    conn.commit()
 
 
 def section_count(conn: sqlite3.Connection, book_id: int) -> int:

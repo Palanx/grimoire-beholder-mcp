@@ -63,7 +63,14 @@ class SourceParser(Protocol):
     source_type: str
     extensions: tuple[str, ...]
     def can_parse(self, path: Path) -> bool: ...
-    def extract(self, path: Path, section_split_tokens: int = 3000) -> ExtractedBook: ...
+    def extract(
+        self,
+        path: Path,
+        section_split_tokens: int = 3000,
+        conn: sqlite3.Connection | None = None,
+        llm_client: OllamaClient | None = None,
+        llm_model: str | None = None,
+    ) -> ExtractedBook: ...
 ```
 
 `get_parser(path)` walks a fixed list of registered parser instances and
@@ -72,16 +79,133 @@ if none do. `ingest.py` calls `get_parser` once per ingest and never knows
 which concrete parser it got -- everything after `extract()` (chunking,
 contextualization, embedding, indexing) operates on the same
 `ExtractedBook` / `Chapter` / `Section` dataclasses (`sources/common.py`)
-regardless of source format.
+regardless of source format. `conn`/`llm_client`/`llm_model` exist solely
+for `PdfParser`'s LLM-TOC fallback (below); every other parser accepts and
+ignores them so `ingest.py` can still call `extract()` uniformly.
 
-Currently registered: `PdfParser` (`sources/pdf.py`, table of contents ->
-chapters, falling back to heading regexes), `EpubParser` (`sources/epub.py`,
+Currently registered: `PdfParser` (`sources/pdf.py`, see the three-tier
+chapter-detection fallback below), `EpubParser` (`sources/epub.py`,
 one chapter per spine document via `ebooklib`), and `MarkdownParser` /
 `PlaintextParser` (`sources/plaintext.py`, sharing one paragraph-based
 chapter/section splitter). `sources/common.py`'s `auto_split_paragraphs`
 is the shared greedy section-packer used by every parser except PDF's
 (PDF keeps its own, separately tested, page-aware variant to avoid any
 behavior change to existing PDF tests).
+
+### PDF chapter detection: a three-tier fallback
+
+Not every PDF carries an embedded outline, and heading regexes alone are
+unreliable, so `sources/pdf.py`'s `extract_book` tries three strategies in
+order, using the first one that produces a usable result:
+
+1. **Embedded outline** (`doc.get_toc()`): level-1 entries become chapters.
+   Used whenever present -- it's authoritative and needs no further checks.
+2. **LLM-extracted TOC** (`_llm_toc_chapter_bounds`): only attempted when a
+   DB connection and an `OllamaClient` were supplied, and only when the
+   PDF's front matter contains a detectable printed "Table of
+   Contents"/"Contents" page. This step exists because of a real failure
+   case ("Professional C++", Gregoire): it has no embedded outline, and its
+   real chapter headings don't match any heading regex, while literal
+   "CHAPTER N:" strings quoted *inline* inside an appendix's body text do --
+   the regex fallback alone promotes that false text into a chapter
+   boundary while the entire real book collapses into one bucket.
+3. **Heading regex scan** (`_chapter_bounds_from_headings`): last resort,
+   unchanged from before this fallback existed.
+
+**Header/footer stripping** (`_strip_running_headers_footers`) runs once,
+before any of the three tiers, on every page's raw extracted text. It drops
+a page's first/last line if that exact line repeats across most pages (a
+running header/footer), or if it's a standalone page-number-shaped line --
+but only if that number is actually consistent with the page's position,
+estimated by interpolating from the nearest page with unambiguous evidence
+(`_expected_page_number`, via a number sharing its line with other text,
+e.g. "398 | CHAPTER 11 Odds and Ends"). A flat "any standalone numeral in
+first/last-line position is a page number" rule is too broad: some books
+print a chapter's bare number alone, styled large, on that chapter's own
+opener page (confirmed concretely on the Gregoire "Professional C++" PDF,
+for every one of its 34 chapters) -- stripping it erases the title's
+leading word and breaks the title matching that offset resolution (below)
+depends on.
+
+**TOC-region detection** (`_detect_toc_pages`) anchors on a page whose text
+matches "Contents"/"Table of Contents", then keeps including subsequent
+pages while a sizeable fraction of their lines look like
+`<title> ... <page>` -- stopping at the first page that doesn't (a real
+content or preface page). Both this and offset resolution (below) run
+against `raw_pages_text` (header/footer-stripped only, real per-line
+structure preserved), not the fully cleaned `pages_text` used for chapter
+*body* text -- `_clean_text` collapses any single `\n` into a space, which
+destroys the per-line pattern TOC detection needs and, for offset
+resolution, turns a page's "lines" into whole paragraphs. The LLM prompt
+text is built from the same `raw_pages_text` region for the same reason.
+
+**Extraction and validation**: the detected TOC text is sent to `llm_model`
+with a prompt demanding a strict JSON array of `{title, declared_page}`
+(`_parse_llm_toc_response` strips code fences and skips malformed entries
+defensively). The raw entries are rejected outright -- falling back to
+heading detection -- if empty, absurdly long (`_MAX_SANE_CHAPTER_COUNT`), or
+not monotonically non-decreasing by declared page (`_validate_declared_entries`).
+An unvalidated LLM TOC is never used.
+
+**Offset resolution** (`_resolve_chapter_pages`) is the part that can't be a
+constant-offset add: a TOC's printed page numbers and the PDF's physical
+page indices are rarely related by one fixed delta across an entire book
+(front matter, plates, and unnumbered pages all shift it). It runs against
+`raw_pages_text`, not the `_clean_text`-flattened `pages_text` -- once
+single newlines are collapsed into spaces, a page's "lines" become whole
+paragraphs, and `_page_top_text`'s line-count cap can then swallow a page's
+*entire* text, including an inline cross-reference to a later chapter's
+exact title. The first entry is located by an unconstrained forward scan
+(`_find_first_match`) for the first page (in page order, not best-scoring)
+whose top-of-page text matches its title -- safe specifically for the first
+entry, since nothing, including the false positives this fallback exists to
+avoid, can precede it. Every later entry re-anchors near an *estimate*
+derived from the previous entry's own resolved offset, searching an
+expanding window (`_OFFSET_SEARCH_RADII`) rather than trusting that
+estimate outright, and never searching before the previous entry's resolved
+page -- which is what keeps it from locking onto an earlier same-titled
+false positive (notably, the chapters listed on a preceding "Part" divider
+page; see below).
+
+"First match wins" rather than "best match wins" matters everywhere, not
+just the first entry: a chapter's title typically appears once on its own
+opener page and then again, verbatim, in every later page's running
+header. The opener's score can only ever reach the "bag of words" tier
+below (running-header furniture like "WHAT'S IN THIS CHAPTER?" dilutes a
+plain substring match on the opener itself), while a later running header
+scores a perfect exact match -- so picking the page with the highest score
+in the window would systematically prefer a later page over the chapter's
+true opener.
+
+Title matching (`_title_similarity`) treats an exact (normalized) substring
+match as 1.0, falls back to 0.95 if every word of a multi-word title is
+present on the page regardless of order (handles a "Part" divider's title
+being laid out in a different visual order than the TOC prints it -- and,
+for any title starting with "Part `<roman numeral>`", is also tried with that
+label stripped, since a divider page typically prints just its descriptive
+name as the literal opening line, with the "Part `<roman numeral>`" label
+itself appearing only several lines further down), and otherwise falls back
+to a length-windowed `difflib.SequenceMatcher` ratio. The match has to clear
+`_TITLE_MATCH_THRESHOLD` (0.85) to count -- high enough that two textually
+similar but distinct chapter titles (e.g. two consecutive chapters both
+ending in "...Classes and Objects") can't cross it via fuzzy ratio alone,
+since every genuine opener page scores at least 0.938. A page that itself
+carries a standalone "Part `<roman numeral>`" line anywhere in its text
+(`_is_part_divider_page`) is skipped as a candidate for any non-"Part"
+title, since a "Part" divider commonly lists its first few child chapters'
+titles verbatim as a kind of mini table of contents -- otherwise it could
+win a perfect substring match for one of those chapters before that
+chapter's real opener is ever reached. All of the above was tuned
+empirically against the Gregoire "Professional C++" PDF. The resolved
+bounds get one more check (`_validate_resolved_bounds`: in-range, strictly
+increasing) before being trusted.
+
+**Caching**: a validated, offset-resolved TOC is persisted in the
+`pdf_toc_cache` table (`db.py`), keyed by `content_hash` rather than
+`book_id` -- extraction runs before the book row exists, and this also
+makes re-ingesting the same file under a different slug or name reuse the
+cache for free. Re-running ingestion on the same file never re-calls the
+LLM.
 
 ### Recipe: add a new source type
 

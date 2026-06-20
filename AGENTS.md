@@ -26,6 +26,7 @@ why past decisions were made*, see [PROJECT_LOG.md](PROJECT_LOG.md).
 8. **Natural composite keys only** (`book_id, chapter_index, section_index[, chunk_index]`) on `chapters`/`sections`/`chunks`. Inserts must stay idempotent (`INSERT OR REPLACE` / `ON CONFLICT DO NOTHING`); never add a surrogate id to these tables.
 9. **FTS5 availability is probed at `db.connect()`** and must fail loudly (`FTS5UnavailableError`) — never silently degrade to vector-only.
 10. **Keep `uv run pytest` green.** New logic ships with tests; mock Ollama via `FakeOllamaClient`, never a real daemon, in a test.
+11. **Never use an unvalidated LLM-extracted TOC.** `sources/pdf.py`'s `_llm_toc_chapter_bounds` (the no-embedded-outline fallback) must validate declared entries and offset-resolved bounds before returning or caching them; any failure falls back to heading detection and logs why — it never raises and never hands back an unchecked result.
 
 ## Conventions
 
@@ -47,7 +48,7 @@ why past decisions were made*, see [PROJECT_LOG.md](PROJECT_LOG.md).
 | `embed.py` | batched embedding + FTS5 indexing |
 | `search.py` | hybrid retrieval composition root |
 | `retrieval/` | `VectorStrategy`, `FtsStrategy`, RRF fusion, `RetrievalStrategy` protocol |
-| `db.py` | sole SQLite touchpoint: schema, CRUD, FTS5, embedding-model guard |
+| `db.py` | sole SQLite touchpoint: schema, CRUD, FTS5, embedding-model guard, PDF TOC cache |
 | `ollama_client.py` | `OllamaClient` protocol + `RealOllamaClient` |
 | `config.py` | `config.toml` loader with built-in defaults |
 | `mcpb/` | `.mcpb` bundle manifest + doc stub (no bundled code/deps) |

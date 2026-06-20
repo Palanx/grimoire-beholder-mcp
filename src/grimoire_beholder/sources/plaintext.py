@@ -20,8 +20,10 @@ display name falls back to the filename, same as it always has.
 from __future__ import annotations
 
 import re
+import sqlite3
 from pathlib import Path
 
+from ..ollama_client import OllamaClient
 from .common import Chapter, ExtractedBook, auto_split_paragraphs, content_hash_of
 
 _MD_HEADING_RE = re.compile(r"^#{1,6}\s+(.*\S)\s*$")
@@ -34,7 +36,15 @@ class MarkdownParser:
     def can_parse(self, path: Path) -> bool:
         return path.suffix.lower() in self.extensions
 
-    def extract(self, path: Path, section_split_tokens: int = 3000) -> ExtractedBook:
+    def extract(
+        self,
+        path: Path,
+        section_split_tokens: int = 3000,
+        conn: sqlite3.Connection | None = None,
+        llm_client: OllamaClient | None = None,
+        llm_model: str | None = None,
+    ) -> ExtractedBook:
+        """Unused `conn`/`llm_client`/`llm_model`: only PdfParser's LLM-TOC fallback needs them."""
         return _parse_text_document(path, section_split_tokens, self.source_type, _MD_HEADING_RE)
 
 
@@ -45,7 +55,15 @@ class PlaintextParser:
     def can_parse(self, path: Path) -> bool:
         return path.suffix.lower() in self.extensions
 
-    def extract(self, path: Path, section_split_tokens: int = 3000) -> ExtractedBook:
+    def extract(
+        self,
+        path: Path,
+        section_split_tokens: int = 3000,
+        conn: sqlite3.Connection | None = None,
+        llm_client: OllamaClient | None = None,
+        llm_model: str | None = None,
+    ) -> ExtractedBook:
+        """Unused `conn`/`llm_client`/`llm_model`: only PdfParser's LLM-TOC fallback needs them."""
         return _parse_text_document(path, section_split_tokens, self.source_type, None)
 
 

@@ -12,9 +12,11 @@ here, and append an instance to `_PARSERS` below. Nothing else changes.
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 from typing import Protocol
 
+from ..ollama_client import OllamaClient
 from .common import Chapter, ExtractedBook, Section
 from .epub import EpubParser
 from .pdf import PdfParser
@@ -27,7 +29,23 @@ class SourceParser(Protocol):
 
     def can_parse(self, path: Path) -> bool: ...
 
-    def extract(self, path: Path, section_split_tokens: int = 3000) -> ExtractedBook: ...
+    def extract(
+        self,
+        path: Path,
+        section_split_tokens: int = 3000,
+        conn: sqlite3.Connection | None = None,
+        llm_client: OllamaClient | None = None,
+        llm_model: str | None = None,
+    ) -> ExtractedBook:
+        """Parse `path` into a Book/Chapter/Section hierarchy.
+
+        `conn`/`llm_client`/`llm_model` are only meaningful to `PdfParser`,
+        which uses them to extract and cache a TOC via the LLM when a PDF
+        has no embedded outline. Every other parser accepts and ignores
+        them so `ingest.py` can call `extract()` uniformly without knowing
+        which concrete parser it got.
+        """
+        ...
 
 
 _PARSERS: list[SourceParser] = [PdfParser(), EpubParser(), MarkdownParser(), PlaintextParser()]

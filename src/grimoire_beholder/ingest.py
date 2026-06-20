@@ -43,7 +43,13 @@ def run_ingest(
 
     progress(f"Extracting hierarchy from {source_path} ...")
     parser = sources.get_parser(source_path)
-    extracted = parser.extract(source_path, config.section_split_tokens)
+    extracted = parser.extract(
+        source_path,
+        config.section_split_tokens,
+        conn=conn,
+        llm_client=client,
+        llm_model=config.llm_model,
+    )
 
     display_name = name or extracted.title or source_path.stem
     slug = slugify(display_name)

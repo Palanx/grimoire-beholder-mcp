@@ -45,3 +45,11 @@ candidate_pool_size = 50
 # Higher k flattens the curve, giving lower-ranked candidates relatively
 # more influence; 60 is the commonly used default from the RRF literature.
 rrf_k = 60
+
+# Ollama runtime context window (tokens) for every generate() call. Ollama
+# loads a model with a 4096-token window by default regardless of the
+# model's own max context, silently truncating longer prompts (e.g. a
+# multi-page printed table of contents, or summarizing a long chapter)
+# instead of erroring -- raise this if your models support more and you
+# have the GPU/system memory for it.
+num_ctx = 16384

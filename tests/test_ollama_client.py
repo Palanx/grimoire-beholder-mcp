@@ -27,7 +27,7 @@ class _FakeResponse:
 def test_real_client_generate_strips_think_before_returning(monkeypatch: pytest.MonkeyPatch) -> None:
     raw_response = "<think>scratch work the model should not leak</think>Final summary text."
 
-    def fake_generate(model: str, system: str, prompt: str, think: bool) -> _FakeResponse:
+    def fake_generate(model: str, system: str, prompt: str, think: bool, options: dict) -> _FakeResponse:
         return _FakeResponse(raw_response)
 
     monkeypatch.setattr(ollama_client.ollama, "generate", fake_generate)
@@ -37,3 +37,19 @@ def test_real_client_generate_strips_think_before_returning(monkeypatch: pytest.
 
     assert result == "Final summary text."
     assert "<think>" not in result
+
+
+def test_real_client_passes_configured_num_ctx(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ollama silently truncates prompts past its 4096-token default -- num_ctx must always be set."""
+    captured: dict = {}
+
+    def fake_generate(model: str, system: str, prompt: str, think: bool, options: dict) -> _FakeResponse:
+        captured.update(options)
+        return _FakeResponse("ok")
+
+    monkeypatch.setattr(ollama_client.ollama, "generate", fake_generate)
+    client = ollama_client.RealOllamaClient(num_ctx=16384)
+
+    client.generate("cogito:8b", "system prompt", "user prompt")
+
+    assert captured == {"num_ctx": 16384, "temperature": 0}

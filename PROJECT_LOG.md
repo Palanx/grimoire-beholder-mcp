@@ -17,16 +17,18 @@ structure) and [AGENTS.md](AGENTS.md) (operating rules). This file answers
 **Current state:**
 - MCP server exposes exactly 5 read-only tools: `list_books`, `get_book_outline`, `search_book`, `get_section`, `book_status`. No mutating tool is, or should be, exposed there.
 - 4 source formats parse via the `SourceParser` registry: `.pdf`, `.epub`, `.md`/`.markdown`, `.txt`.
+- PDF chapter detection is now a three-tier fallback: embedded outline -> LLM-extracted TOC (new) -> heading regex scan. The LLM-TOC tier only fires when a DB connection + `OllamaClient` are supplied and a printed TOC page is detected; its output is validated and offset-resolved before use, and cached in `db.py`'s `pdf_toc_cache` table (keyed by `content_hash`) so re-ingestion never re-calls the LLM. See ARCHITECTURE.md's "PDF chapter detection" section for the full algorithm and why a constant page-offset doesn't work. `SourceParser.extract()` grew three new optional kwargs (`conn`, `llm_client`, `llm_model`) to thread this through; every parser except `PdfParser` accepts and ignores them.
 - Retrieval has 2 modes: `hybrid` (vector cosine + SQLite FTS5/BM25, fused by RRF — the default) and `vector` (cosine only, CLI/debug override via `--mode`, not exposed over MCP).
 - Filters `book_id`/`author`/`source_type` are composable and apply identically to both retrieval arms, in the CLI (`query`) and MCP (`search_book`).
-- `uv run pytest` is green: **80 passed**, 0 failed (was 75; `tests/test_cli.py` added). Ollama is mocked throughout (`tests/fakes.py:FakeOllamaClient`) — the suite needs no daemon and no pulled models.
+- `uv run pytest` is green: **92 passed**, 0 failed (was 80; `tests/test_sources_pdf_llm_toc.py` added, 12 tests). Ollama is mocked throughout (`tests/fakes.py:FakeOllamaClient` plus a small canned-response fake local to the new test file) — the suite needs no daemon and no pulled models.
 - CLI commands: `ingest`, `list`, `delete`, `query`, `status`, `reindex-fts`, `serve-mcp`. `ingest`/`delete`/`reindex-fts` are CLI-only by design.
-- Single SQLite file is the whole library + checkpoint (WAL mode, FTS5 standalone virtual table, content-hash-idempotent re-ingest, per-chunk-status resumability).
+- Single SQLite file is the whole library + checkpoint (WAL mode, FTS5 standalone virtual table, content-hash-idempotent re-ingest, per-chunk-status resumability, now also the LLM-TOC cache).
 - `.mcpb` manifest (`mcpb/manifest.json`) lists all 5 tools; the bundle ships no code/deps of its own (just wires `grimoire-beholder serve-mcp` into Claude Desktop).
 - `search.search()` now calls `db.ensure_embedding_model` itself (previously only `ingest.run_ingest` did) — the CLI `query` and MCP `search_book` paths are no longer able to silently embed a query in the wrong vector space after a `config.toml` model change.
 - `RetrievalStrategy` (`retrieval/`) is documented as a protocol with two hardcoded call sites in `search.py`, not a registry — don't read it as symmetrically pluggable with `SourceParser`'s `_PARSERS` list. See ARCHITECTURE.md's extension-point-2 section.
 
 **Open / pending (deferred, not forgotten):**
+- book_id 1 ("Professional C++, 5th Edition", Gregoire) was ingested before the LLM-TOC fallback existed and has the broken single-bucket chapter hierarchy that motivated this fix. It has **not** been re-ingested yet — that's the user's call to make (re-ingest needs `--force` or a delete+re-ingest, both destructive to the existing rows, so this agent deliberately did not run it). See the decision-log entry below for the exact command.
 - P2 "consider" items from the local-rag idea-mining pass — proposed, not committed: JSON export of book/library metadata; an additional MCP transport (SSE/HTTP) beyond stdio; OCR for scanned PDFs via Tesseract. No design work done on any of these yet.
 - Date filtering (`--after`/`--before`) on `query`/`search_book` was evaluated and declined — see 2026-06-18ish "Evolve" entry below. Don't re-propose it without a real publication-date metadata source first.
 - No CI is configured; `uv run pytest` is run manually before calling a session done.
@@ -44,6 +46,84 @@ uv run python -c "import asyncio; from grimoire_beholder import mcp_server; prin
 ---
 
 ## Decision log (append-only, reverse-chronological — never edit or delete a past entry)
+
+```
+2026-06-18 — Add LLM-extracted TOC fallback for PDFs with no embedded outline
+Did: Added a second tier to sources/pdf.py's chapter-detection fallback,
+between the embedded-outline path and the regex heading scan: when a PDF
+has no outline, detect a printed "Table of Contents" region across however
+many leading pages it actually spans (_detect_toc_pages, anchored on a
+header line, extended while line density still looks TOC-shaped), send
+that text to the already-configured llm_model for strict-JSON extraction
+({title, declared_page} per top-level entry), validate the raw entries
+(non-empty, sane count, monotonic declared pages), then resolve each
+entry's *declared* (printed) page to its *physical* PDF page. Offset
+resolution does not assume one constant delta: chapter 1 is found by an
+unconstrained forward scan, and every later chapter re-anchors near an
+estimate from the previous chapter's own resolved offset, searching an
+expanding window and never looking earlier than the previous chapter's
+resolved page. A final bounds check (in-range, strictly increasing) runs
+before anything is trusted. A validated result is cached in a new
+pdf_toc_cache table (db.py), keyed by content_hash, so re-ingesting the
+same file never re-calls the LLM. Any validation failure at any stage logs
+why and falls back to the pre-existing heading-regex scan -- this fallback
+either returns a fully validated result or returns None, never an
+unvalidated one. SourceParser.extract() gained three optional kwargs
+(conn, llm_client, llm_model) to thread this through from ingest.py;
+EpubParser/MarkdownParser/PlaintextParser accept and ignore them so the
+call site in ingest.py stays uniform. Added tests/test_sources_pdf_llm_toc.py
+(12 tests, all Ollama-free via a small canned-response fake) with a 9-page
+synthetic PDF fixture (llm_toc_pdf_path in conftest.py) that reproduces the
+triggering bug directly: no embedded outline, a TOC spanning physical pages
+2-3 with declared page numbers (1, 6, 10) that resolve to different
+physical pages (5, 7, 8) by a different offset each time, and a page whose
+literal first line is "Chapter 4: Counting Mistakes" -- an inline
+appendix sub-heading that the regex-only fallback misreads as its own
+chapter (verified directly: test_heading_only_fallback_would_misfire_on_this_fixture
+asserts the bug is real on this fixture), but which the LLM-TOC path never
+promotes. Updated ARCHITECTURE.md (new "PDF chapter detection: a
+three-tier fallback" subsection) and AGENTS.md (new invariant #11: never
+use an unvalidated LLM-extracted TOC; db.py's table row in "where things
+live" now mentions the TOC cache).
+
+Why: book_id 1, "Professional C++, 5th Edition" (Gregoire), has no
+embedded PDF outline -- its table of contents is hardcoded text on the
+first few pages. The existing heading-regex fallback is too weak for it in
+both directions: it misses the real chapter headings (they don't match
+"Chapter N"-style patterns at the top of a page) while it *does* match a
+literal "CHAPTER N:" string quoted inline inside Appendix A's body text,
+promoting that false text into a chapter boundary while the entire real
+book collapses into one giant synthetic chapter. An LLM-based TOC
+extraction step, gated strictly behind validation and offset resolution,
+fixes both failure modes without weakening the embedded-outline path (still
+tried first, unchanged) or removing the regex fallback (still the last
+resort, unchanged). The non-constant-offset design specifically came from
+checking Gregoire's real numbers: a TOC-declared page 304 corresponds to
+physical PDF page 346, a ~42-page front-matter delta that is not safe to
+assume is identical for every chapter in the book (color plates, blank
+pages, and part-divider pages all shift it further in different places).
+Caching by content_hash (not book_id) was chosen because extraction runs
+before the book row exists, and it makes re-ingesting the same file under a
+different slug or name reuse the cache for free -- consistent with this
+project's existing content-hash-idempotency pattern, not a new mechanism.
+
+Affects: src/grimoire_beholder/sources/pdf.py, src/grimoire_beholder/sources/__init__.py,
+src/grimoire_beholder/sources/epub.py, src/grimoire_beholder/sources/plaintext.py,
+src/grimoire_beholder/ingest.py, src/grimoire_beholder/db.py,
+tests/test_sources_pdf_llm_toc.py (new), tests/conftest.py, ARCHITECTURE.md, AGENTS.md.
+
+Follow-ups: book_id 1 has not been re-ingested under this fix yet -- that
+is the user's call, not run automatically by this session. To re-ingest
+once Ollama is running with the configured llm_model pulled (cogito by
+default): either re-run the original `uv run grimoire-beholder ingest
+<path-to-professional-c++.pdf> --force` (replaces the existing book_id 1
+row and its chapters/sections/chunks, re-running the full pipeline -- this
+is destructive to the old broken rows by design), or `uv run
+grimoire-beholder delete 1` followed by a plain `ingest` of the same file.
+Either way, expect one new LLM call to extract the TOC (cached afterward)
+plus the normal summarize/contextualize/embed calls ingest already makes.
+uv run pytest: 92 passed (was 80).
+```
 
 ```
 2026-06-18 — Architecture review fixes: embedding-model guard, page_start bug, double-fetch, CLI tests, honest RetrievalStrategy docs

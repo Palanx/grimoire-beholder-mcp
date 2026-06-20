@@ -86,12 +86,37 @@ class OllamaClient(Protocol):
 
 
 class RealOllamaClient:
-    """Talks to a local Ollama daemon, with retries and <think> stripping."""
+    """Talks to a local Ollama daemon, with retries and <think> stripping.
+
+    `num_ctx` is passed through to every `generate()` call because Ollama
+    loads a model with a 4096-token runtime context window by default,
+    regardless of what the model itself supports -- silently truncating
+    any longer prompt instead of erroring. Configured via `config.toml`'s
+    `num_ctx`, not hardcoded here, since the right value depends on the
+    user's models and hardware.
+
+    `temperature=0` (greedy decoding) on every call for the same reason:
+    every use of `generate()` here is extraction or faithful summarization
+    of given text, never open-ended creative writing, so sampling variance
+    only hurts -- confirmed concretely on the Gregoire "Professional C++"
+    TOC, where the exact same prompt and batch text extracted all 6
+    chapter headings in isolation but silently dropped several of them
+    when run as part of the full multi-batch pipeline.
+    """
+
+    def __init__(self, num_ctx: int = 4096) -> None:
+        self.num_ctx = num_ctx
 
     @_RETRY
     def generate(self, model: str, system: str, prompt: str) -> str:
         """Run one standard-mode generation, with <think> blocks stripped defensively."""
-        response = ollama.generate(model=model, system=system, prompt=prompt, think=False)
+        response = ollama.generate(
+            model=model,
+            system=system,
+            prompt=prompt,
+            think=False,
+            options={"num_ctx": self.num_ctx, "temperature": 0},
+        )
         return _strip_think(response.response)
 
     @_RETRY

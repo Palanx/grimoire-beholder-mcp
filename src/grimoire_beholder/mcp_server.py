@@ -120,7 +120,7 @@ def search_book(
     """
     config = load_config()
     ollama_client.ensure_models_available([config.embedding_model])
-    client = ollama_client.RealOllamaClient()
+    client = ollama_client.RealOllamaClient(num_ctx=config.num_ctx)
     conn = db.connect(config.db_path)
     try:
         results = search_mod.search(

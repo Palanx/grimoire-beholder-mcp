@@ -18,6 +18,7 @@ _DEFAULTS = {
     "retrieval_mode": "hybrid",
     "candidate_pool_size": 50,
     "rrf_k": 60,
+    "num_ctx": 16384,
 }
 
 
@@ -34,6 +35,7 @@ class Config:
     retrieval_mode: str
     candidate_pool_size: int
     rrf_k: int
+    num_ctx: int
 
 
 def load_config(path: Path = Path("config.toml")) -> Config:

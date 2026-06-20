@@ -22,6 +22,7 @@ _CONFIG_KWARGS = dict(
     retrieval_mode="hybrid",
     candidate_pool_size=50,
     rrf_k=60,
+    num_ctx=4096,
 )
 
 
@@ -59,7 +60,7 @@ def test_search_book_and_get_section_compose(
     fake_client = FakeOllamaClient(vectors={"the beginning": [1.0, 0.0]})
     monkeypatch.setattr(mcp_server, "load_config", lambda: config)
     monkeypatch.setattr(mcp_server.ollama_client, "ensure_models_available", lambda required: None)
-    monkeypatch.setattr(mcp_server.ollama_client, "RealOllamaClient", lambda: fake_client)
+    monkeypatch.setattr(mcp_server.ollama_client, "RealOllamaClient", lambda **kwargs: fake_client)
 
     hits = mcp_server.search_book("the beginning", top_k=1)
     assert len(hits) == 1

@@ -12,12 +12,14 @@ correctly, it's just not a number a reader would recognize.
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 import ebooklib
 from ebooklib import epub
 from lxml import html as lxml_html
 
+from ..ollama_client import OllamaClient
 from .common import Chapter, ExtractedBook, auto_split_paragraphs, content_hash_of
 
 _LOCATION_STRIDE = 100_000
@@ -32,7 +34,15 @@ class EpubParser:
     def can_parse(self, path: Path) -> bool:
         return path.suffix.lower() in self.extensions
 
-    def extract(self, path: Path, section_split_tokens: int = 3000) -> ExtractedBook:
+    def extract(
+        self,
+        path: Path,
+        section_split_tokens: int = 3000,
+        conn: sqlite3.Connection | None = None,
+        llm_client: OllamaClient | None = None,
+        llm_model: str | None = None,
+    ) -> ExtractedBook:
+        """Unused `conn`/`llm_client`/`llm_model`: only PdfParser's LLM-TOC fallback needs them."""
         content_hash = content_hash_of(path)
         book = epub.read_epub(str(path))
 
